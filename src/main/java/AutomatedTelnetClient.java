@@ -12,7 +12,7 @@ public class AutomatedTelnetClient {
     private final InputStream in;
     private final PrintStream out;
     private final String prompt;
-    private long timeout = 10000L;
+    private long timeout = 50000L;
 
     //this constructor is for Apache commons TelnetClient socket
     public AutomatedTelnetClient(String server, String user, String password, String prompt, boolean mode) throws Exception {

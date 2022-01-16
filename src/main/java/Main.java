@@ -1,6 +1,8 @@
 import java.io.FileNotFoundException;
 import java.io.PrintStream;
-import java.util.stream.Collectors;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Stream;
 
 public class Main {
@@ -9,20 +11,22 @@ public class Main {
     private static PrintStream errPasswords;
 
     static {
-        try {
-            successPasswords = new PrintStream("/tmp/successPasswords.txt");
-            errPasswords = new PrintStream("/tmp/errPasswords.txt");
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
+        synchronized (Main.class) {
+            try {
+                successPasswords = new PrintStream("successPasswords" + System.currentTimeMillis() + ".txt");
+                errPasswords = new PrintStream("errPasswords" + System.currentTimeMillis() + ".txt");
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
         }
     }
 
-    private static void logSuccessPasswords(String arg){
+    private static synchronized void logSuccessPasswords(String arg) {
         successPasswords.println(arg);
         successPasswords.flush();
     }
 
-    private static void logErrPasswords(String arg){
+    private static synchronized void logErrPasswords(String arg) {
         errPasswords.println(arg);
         errPasswords.flush();
     }
@@ -59,14 +63,10 @@ public class Main {
         long num = arg;
 
         do {
-            rem = (int) num %  length;
+            rem = (int) num % length;
             num = num / length;
             res = Character.toString(chars[rem]) + res;
         } while (num > 0);
-
-        if (arg % 10 == 0) {
-             System.out.print(".");
-        }
         if (arg % 1000 == 0) {
             System.out.print("\n" + arg + " of passwords tested. " + res + "    |");
         }
@@ -74,7 +74,25 @@ public class Main {
     }
 
     public static void main(String[] args) {
-        Stream<Long> infiniteStream = Stream.iterate(0L, i -> i + 1L);
-        infiniteStream.map(Main::numberToPassword).map(Main::tryLogin).collect(Collectors.toList());
+        System.out.print("starting-----");
+
+        //Stream<Long> infiniteStream = Stream.iterate(0L, i -> i + 1L);
+        //infiniteStream.skip(1000000).parallel().map(Main::numberToPassword).map(Main::tryLogin).collect(Collectors.toList());
+
+
+        ForkJoinPool fjp1 = new ForkJoinPool(16);
+        Boolean sumFJ1 = true;
+
+        Callable<Boolean> callable1 = () -> Stream.iterate(0L, i -> i + 1L).parallel()
+                .map(Main::numberToPassword)
+                .map(Main::tryLogin)
+                .reduce(true, (Boolean a, Boolean b) -> b);
+        //.reduce(0, Integer::sum);
+
+        try {
+            sumFJ1 = fjp1.submit(callable1).get();
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+        }
     }
 }
